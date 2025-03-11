@@ -19,20 +19,10 @@ const verificarToken = (req, res, next) => {
   }
 };
 
-
 // 🔹 Criar um novo aluno (NÃO PROTEGIDO)
 router.post("/register", async (req, res) => {
   try {
-    const {
-      nome,
-      endereco,
-      dataNascimento,
-      matricula,
-      telefone,
-      email,
-      curso,
-      senha,
-    } = req.body;
+    const { nome, endereco, dataNascimento, matricula, telefone, email, curso, senha } = req.body;
 
     // Verifica se o aluno já está cadastrado
     const alunoExiste = await Aluno.findOne({ email });
@@ -99,13 +89,12 @@ router.post("/login", async (req, res) => {
   }
 });
 
-
 // 🔹 Listar todos os alunos (PROTEGIDO)
 router.get("/", verificarToken, async (req, res) => {
   try {
     const alunos = await Aluno.find()
-      .select("-senha")
-      .populate("disciplinas");
+      .select("-senha") // Exclui a senha da resposta
+      .populate("disciplinas"); // Popula as disciplinas associadas
 
     res.json(alunos);
   } catch (error) {
@@ -125,6 +114,43 @@ router.get("/:id", verificarToken, async (req, res) => {
   }
 });
 
+// 🔹 Buscar informações do aluno logado (PROTEGIDO)
+// 🔹 Buscar informações do aluno logado (PROTEGIDO)
+// 🔹 Buscar informações do aluno logado (NÃO PROTEGIDO)
+router.get("/me/:id", async (req, res) => {
+  try {
+    const alunoId = req.params.id; // ID do aluno na URL
+    const alunoLogadoId = req.headers["aluno-id"]; // ID do aluno logado (enviado pelo frontend)
+
+    // Verifica se o ID na URL corresponde ao ID do aluno logado
+    if (alunoId !== alunoLogadoId) {
+      return res.status(403).json({ message: "Acesso negado! Você só pode acessar suas próprias informações." });
+    }
+
+    // Busca o aluno
+    const aluno = await Aluno.findById(alunoId).select("-senha");
+    if (!aluno) {
+      return res.status(404).json({ message: "Aluno não encontrado." });
+    }
+
+    // Busca as matrículas do aluno
+    const matriculas = await Matricula.find({ alunoId }).populate("disciplinaId");
+
+    // Extrai as disciplinas das matrículas
+    const disciplinas = matriculas.map((matricula) => matricula.disciplinaId);
+
+    // Adiciona as disciplinas ao objeto do aluno
+    const alunoComDisciplinas = {
+      ...aluno.toObject(), // Converte o documento do Mongoose para um objeto JavaScript
+      disciplinas, // Adiciona as disciplinas ao objeto do aluno
+    };
+
+    res.json(alunoComDisciplinas); // Retorna o aluno com as disciplinas
+  } catch (error) {
+    console.error("Erro ao buscar informações do aluno:", error);
+    res.status(500).json({ message: "Erro ao buscar informações do aluno." });
+  }
+});
 // 🔹 Atualizar aluno por ID (PROTEGIDO)
 router.put("/:id", verificarToken, async (req, res) => {
   try {

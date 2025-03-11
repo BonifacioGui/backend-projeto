@@ -1,32 +1,32 @@
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const Aluno = require("../models/Aluno");
+const AlunoDisciplina = require("../models/AlunoDisciplina");
 
-exports.criarAluno = async (req, res) => {
-  const { nome, email, senha } = req.body;
+// Listar todos os alunos com suas disciplinas matriculadas
+exports.listarAlunosComDisciplinas = async (req, res) => {
   try {
-    const salt = await bcrypt.genSalt(10);
-    const hashSenha = await bcrypt.hash(senha, salt);
-    const novoAluno = new Aluno({ nome, email, senha: hashSenha });
-    await novoAluno.save();
-    res.json(novoAluno);
+    // Busca todos os alunos (excluindo a senha)
+    const alunos = await Aluno.find().select("-senha");
+
+    // Para cada aluno, busca as disciplinas matriculadas
+    const alunosComDisciplinas = await Promise.all(
+      alunos.map(async (aluno) => {
+        // Busca as matrículas do aluno
+        const matriculas = await AlunoDisciplina.find({ alunoId: aluno._id }).populate("disciplinaId");
+
+        // Extrai as disciplinas das matrículas
+        const disciplinas = matriculas.map((matricula) => matricula.disciplinaId);
+
+        // Retorna o aluno com as disciplinas
+        return {
+          ...aluno.toObject(),
+          disciplinas: disciplinas || [], // Retorna array vazio se não houver disciplinas
+        };
+      })
+    );
+
+    res.status(200).json(alunosComDisciplinas);
   } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-};
-
-exports.loginAluno = async (req, res) => {
-  const { email, senha } = req.body;
-  try {
-    const aluno = await Aluno.findOne({ email });
-    if (!aluno) return res.status(404).json({ error: "Aluno não encontrado" });
-
-    const senhaValida = await bcrypt.compare(senha, aluno.senha);
-    if (!senhaValida) return res.status(401).json({ error: "Senha inválida" });
-
-    const token = jwt.sign({ id: aluno._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
-    res.json({ token });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Erro ao buscar alunos:", error);
+    res.status(500).json({ error: "Erro ao buscar alunos." });
   }
 };
