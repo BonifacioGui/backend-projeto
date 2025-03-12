@@ -2,6 +2,8 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Aluno = require("../models/Aluno");
+const Matricula = require("../models/Matricula");
+const AlunoDisciplina = require("../models/AlunoDisciplina");
 
 const router = express.Router();
 
@@ -106,26 +108,32 @@ router.get("/", verificarToken, async (req, res) => {
 router.get("/:id", verificarToken, async (req, res) => {
   try {
     const aluno = await Aluno.findById(req.params.id).select("-senha");
-    if (!aluno) return res.status(404).json({ message: "Aluno não encontrado!" });
+    if (!aluno) {
+      return res.status(404).json({ message: "Aluno não encontrado!" });
+    }
 
-    res.json(aluno);
+    // Busca as matrículas do aluno e popula as disciplinas
+    const matriculas = await Matricula.find({ alunoId: aluno._id }).populate("disciplinaId");
+
+    // Extrai as disciplinas das matrículas
+    const disciplinas = matriculas.map((matricula) => matricula.disciplinaId);
+
+    // Adiciona as disciplinas ao objeto do aluno
+    const alunoComDisciplinas = {
+      ...aluno.toObject(),
+      disciplinas,
+    };
+
+    res.json(alunoComDisciplinas);
   } catch (error) {
     res.status(500).json({ message: "Erro ao buscar aluno", error });
   }
 });
 
-// 🔹 Buscar informações do aluno logado (PROTEGIDO)
-// 🔹 Buscar informações do aluno logado (PROTEGIDO)
 // 🔹 Buscar informações do aluno logado (NÃO PROTEGIDO)
 router.get("/me/:id", async (req, res) => {
   try {
-    const alunoId = req.params.id; // ID do aluno na URL
-    const alunoLogadoId = req.headers["aluno-id"]; // ID do aluno logado (enviado pelo frontend)
-
-    // Verifica se o ID na URL corresponde ao ID do aluno logado
-    if (alunoId !== alunoLogadoId) {
-      return res.status(403).json({ message: "Acesso negado! Você só pode acessar suas próprias informações." });
-    }
+    const alunoId = req.params.id;
 
     // Busca o aluno
     const aluno = await Aluno.findById(alunoId).select("-senha");
@@ -133,11 +141,11 @@ router.get("/me/:id", async (req, res) => {
       return res.status(404).json({ message: "Aluno não encontrado." });
     }
 
-    // Busca as matrículas do aluno
-    const matriculas = await Matricula.find({ alunoId }).populate("disciplinaId");
+    // Busca as associações do aluno e popula as disciplinas
+    const associacoes = await AlunoDisciplina.find({ alunoId }).populate("disciplinaId");
 
-    // Extrai as disciplinas das matrículas
-    const disciplinas = matriculas.map((matricula) => matricula.disciplinaId);
+    // Extrai as disciplinas das associações
+    const disciplinas = associacoes.map((associacao) => associacao.disciplinaId);
 
     // Adiciona as disciplinas ao objeto do aluno
     const alunoComDisciplinas = {
@@ -145,7 +153,7 @@ router.get("/me/:id", async (req, res) => {
       disciplinas, // Adiciona as disciplinas ao objeto do aluno
     };
 
-    res.json(alunoComDisciplinas); // Retorna o aluno com as disciplinas
+    res.json(alunoComDisciplinas);
   } catch (error) {
     console.error("Erro ao buscar informações do aluno:", error);
     res.status(500).json({ message: "Erro ao buscar informações do aluno." });
