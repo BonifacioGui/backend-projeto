@@ -1,7 +1,7 @@
 const Disciplina = require("../models/Disciplina");
 
 exports.criarDisciplina = async (req, res) => {
-  const { nome, codigo, cargaHoraria } = req.body;  // Certifique-se de que o campo cargaHoraria está no corpo da requisição
+  const { nome, codigo, cargaHoraria } = req.body; 
 
   try {
     // Verifica se a disciplina já existe pelo código

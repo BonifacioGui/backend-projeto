@@ -12,7 +12,7 @@ const AlunoSchema = new mongoose.Schema({
   nome: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   senha: { type: String, required: true },
-  endereco: { type: EnderecoSchema, required: true },  // Isso deve ser um objeto
+  endereco: { type: EnderecoSchema, required: true },  
   dataNascimento: { type: Date, required: true },
   matricula: { type: String, required: true, unique: true },
   telefone: { type: String, required: true },
